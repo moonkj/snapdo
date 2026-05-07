@@ -30,6 +30,8 @@ Icon?
 Training/
 TrainingOutput/
 SnapDoTraining/
+SnapDoTest/
+SnapDoModels/
 *.mlmodel
 !Sources/**/Resources/*.mlmodel
 

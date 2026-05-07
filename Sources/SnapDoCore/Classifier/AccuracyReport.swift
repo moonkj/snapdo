@@ -39,31 +39,39 @@ public struct AccuracyReport: Sendable, Equatable {
 
     /// Pretty-print as the table shape in spec §8.2.
     public func formattedTable() -> String {
+        // String(format: %s ...) doesn't accept Swift String; pad manually.
+        func pad(_ s: String, _ w: Int) -> String {
+            s + String(repeating: " ", count: max(0, w - s.count))
+        }
         var lines: [String] = []
-        lines.append(String(format: "%-12s %-9s %s", "category", "correct", "accuracy"))
+        lines.append(pad("category", 14) + pad("correct", 12) + "accuracy")
         lines.append(String(repeating: "-", count: 36))
         for cell in perCategory {
             let pct = Int(cell.accuracy * 100)
             let mark = pct < 70 ? " ← weak" : ""
-            lines.append(String(format: "%-12s %d/%d %6d%%%@",
-                                cell.category.rawValue, cell.correct, cell.total, pct, mark))
+            let correctStr = "\(cell.correct)/\(cell.total)"
+            let pctStr = "\(pct)%"
+            lines.append(pad(cell.category.rawValue, 14) + pad(correctStr, 12) + pad(pctStr, 6) + mark)
         }
         lines.append(String(repeating: "-", count: 36))
-        lines.append(String(format: "%-12s %14d%%", "average", Int(average * 100)))
+        lines.append(pad("average", 14) + pad("\(Int(average * 100))%", 12))
         return lines.joined(separator: "\n")
     }
 
     public func formattedConfusion() -> String {
+        func pad(_ s: String, _ w: Int) -> String {
+            s + String(repeating: " ", count: max(0, w - s.count))
+        }
         let cats = TopCategory.allCases
         var lines: [String] = []
-        var header = "          "
-        for c in cats { header += String(format: "%-7s", String(c.rawValue.prefix(6))) }
+        var header = pad("", 10)
+        for c in cats { header += pad(String(c.rawValue.prefix(6)), 7) }
         lines.append(header)
         for gt in cats {
-            var row = String(format: "%-10s", String(gt.rawValue.prefix(8)))
+            var row = pad(String(gt.rawValue.prefix(8)), 10)
             for pred in cats {
                 let n = confusion[gt]?[pred] ?? 0
-                row += String(format: "%-7d", n)
+                row += pad("\(n)", 7)
             }
             lines.append(row)
         }

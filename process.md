@@ -191,6 +191,83 @@ Three workstreams ran in parallel on disjoint file scopes:
 - §7.1 confidence buckets ✅
 - §8.2 accuracy measurement types ✅
 
+## 2026-05-07 · Phase C — synthetic batch + Create ML training (in progress)
+
+**C.1 sanity + crop fix:**
+- 41 sub-patterns × 5 imgs each = 205 PNGs in 17 s (no failures).
+- Augmentation initially widened canvas (1170×2532 → 1219×2637) because `transformed(by: scale)` extends the CIImage `extent`. Architect fix: scale + rotate around centre, then `createCGImage(from: cropRect)` with original 1170×2532 dimensions. Spec §4.3 invariant restored.
+
+**C.2 first attempt (v1) — single `generate-all` process:**
+- Launched at 22:16 with `--noise medium`. Reached 4,143/13,600 (Receipt mostly complete: 12 of 13 sub-patterns at exact spec count, online_shopping at 243/400).
+- **Crash:** SIGSEGV at 22:09:56 and 22:10:03 — `EXC_BAD_ACCESS, KERN_INVALID_ADDRESS, possible pointer authentication failure`.
+- **Debate-7 root-cause:**
+  - H1 (Debugger): SwiftUI ImageRenderer or CIContext leaking memory across thousands of renders → eventual heap corruption.
+  - H2 (Architect): DiagnosticReport says `parentProc: Exited process` — the bash wrapper terminated, child got SIGHUP, but Swift's signal handler wasn't installed cleanly leading to the segfault during shutdown.
+  - **Resolution:** H2 is sufficient explanation (parent wrapper definitely died first; once parent exits the trainer process loses its stdout pipe and is hit with broken-pipe → segfault during a Swift retain). H1 may still be true under sustained load and is mitigated by H2's fix anyway: per-sub-pattern processes mean each one starts from a fresh address space.
+
+**C.2 second attempt (v2) — per-sub-pattern resume script:**
+- `/tmp/snapdo_resume.sh` runs each sub-pattern in its own `SnapDoTrainer generate` invocation, launched via `nohup ... &` + `disown` so neither the wrapper nor the parent shell can SIGHUP it.
+- Re-renders only what was missing: receipt.online_shopping + all of place / conversation / link / todo / other.
+- Started 22:28. Per-sub-pattern logs in `/tmp/snapdo_<code>.log`.
+
+**C.3 Create ML CLI** (commit 996ea6a, before C.2 v2):
+- `CreateMLBridge.swift` wraps `MLImageClassifier` (ScenePrint v1, automatic validation split, augmentations crop / flip / blur / exposure per spec §5.4).
+- `TrainerCLI` new subcommands: `train`, `evaluate` (uses VNCoreMLRequest + AccuracyMeter), `split` (spec §5.3 5% hold-out).
+- Build green: `xcodebuild SnapDoTrainer macOS BUILD SUCCEEDED`.
+
+**C.2 v2 final tally (22:39):** 13,600 / 13,600 PNGs in 11 min (started 22:28). Per-category counts match spec §1.7 exactly: receipt 4,300 · place 1,500 · conversation 3,200 · link 1,500 · todo 1,100 · other 2,000. Disk 5.2 GB.
+
+**C.4a Split (22:44):** `SnapDoTrainer split --pct 5` moved 680 imgs (215+75+160+75+55+100) to `~/SnapDoTest/`, leaving 12,920 in `~/SnapDoTraining/`. Spec §5.3 (5% hold-out) ✅.
+
+**C.4b Train (22:44 → 22:57):** Completed in **13 min** (much faster than spec §5.4 1-2h estimate; ScenePrint feature extraction + 50 iters of head training is light on M-series).
+- **Training accuracy: 74.93%**
+- **Validation accuracy: 77.21%**
+- Output: `~/SnapDoModels/SnapDoClassifier.mlmodel` (82.5 KB — head only; ScenePrint extractor stays in OS).
+
+**C.4c Evaluate (03:05 → 03:08):** First-baseline accuracy on 680-image hold-out test set:
+
+```
+category      correct     accuracy
+------------------------------------
+receipt       213/215     99%
+place         69/75       92%
+conversation  124/160     77%
+link          6/75        8%     ← weak
+todo          32/55       58%    ← weak
+other         72/100      72%
+------------------------------------
+average       75%
+```
+
+Confusion (gt rows × predicted cols):
+```
+          receipt place  conver link   todo   other
+receipt   213    0      2      0      0      0
+place     5      69     0      0      1      0
+conversa  33     3      124    0      0      0
+link      69     0      0      6      0      0   ← 92% of links leaked to receipt
+todo      20     0      3      0      32     0   ← 36% of todos leaked to receipt
+other     15     1      9      3      0      72
+```
+
+**Spec compliance:** Spec §9.1 V1.0 column "합성만" predicts **75% average** — we landed **exactly there.** Per-category vs spec §9.1 first column:
+- receipt 99% (spec target 75%) ✅✅
+- place 92% (spec 80%) ✅
+- conversation 77% (spec 80%) ≈
+- link 8% (spec 85%) ❌ — critical gap
+- todo 58% (spec 55%) ✅
+- other 72% (spec 70%) ✅
+
+**Architect diagnosis (Debate-8):** Link category is the obvious weakness. 69/75 link images mis-predicted as `receipt`. Two competing root-cause hypotheses:
+- H1: SharedLinkCard generator renders KakaoTalk-style chat-bg + a single card → ML sees "card on coloured background" and matches receipt pattern (KakaoPay etc.).
+- H2: Safari/Chrome/YouTube generators have rectangular content blocks similar to receipt detail cards.
+- **Resolution:** likely both. Phase D.1 will: (a) verify by inspecting which link sub-patterns leak most, (b) re-tune Safari/Chrome to look more web-like (browser chrome, multi-column text, link-blue colors), (c) re-train.
+
+**C.4c bug fix during evaluate:** initial run was silent — `String(format: "%-12s ...")` doesn't accept Swift String (same bug as listCategories had). Replaced all `%s` usage with manual padding helper. Also switched from `print()` to `FileHandle.standardOutput.write` to avoid Swift stdio buffering quirks.
+
+**.mlmodel storage:** 82.5 KB → small enough for git, but training data (5 GB) and test set (236 MB) stay out via `.gitignore`. Add a future Phase F note to consider git-LFS if the model balloons past 50 MB at V1.x.
+
+
 
 
 

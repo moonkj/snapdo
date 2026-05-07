@@ -253,27 +253,43 @@ struct TrainerCLI {
     @MainActor
     static func evaluate(model modelURL: URL, testDir: URL) async throws {
         #if canImport(CoreML) && canImport(Vision)
+        FileHandle.standardOutput.write(Data("Compiling model from \(modelURL.path)\n".utf8))
         let compiledURL = try await MLModel.compileModel(at: modelURL)
+        FileHandle.standardOutput.write(Data("Loading MLModel\n".utf8))
         let model = try MLModel(contentsOf: compiledURL)
         let vnModel = try VNCoreMLModel(for: model)
 
         let fm = FileManager.default
         var pairs: [(gt: TopCategory, pred: TopCategory)] = []
+        var failedReads = 0, failedPredicts = 0
         for cat in TopCategory.allCases {
             let folder = testDir.appendingPathComponent(cat.rawValue, isDirectory: true)
-            guard fm.fileExists(atPath: folder.path) else { continue }
+            guard fm.fileExists(atPath: folder.path) else {
+                FileHandle.standardOutput.write(Data("[\(cat.rawValue)] folder missing\n".utf8))
+                continue
+            }
             let files = (try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
-            for f in files where f.pathExtension.lowercased() == "png" {
+            let pngFiles = files.filter { $0.pathExtension.lowercased() == "png" }
+            FileHandle.standardOutput.write(Data("[\(cat.rawValue)] \(pngFiles.count) imgs to evaluate\n".utf8))
+            var i = 0
+            for f in pngFiles {
+                i += 1
                 if let pred = await predict(url: f, model: vnModel) {
                     pairs.append((cat, pred))
+                } else {
+                    failedPredicts += 1
+                }
+                if i % 50 == 0 {
+                    FileHandle.standardOutput.write(Data("  \(cat.rawValue) \(i)/\(pngFiles.count)\n".utf8))
                 }
             }
         }
+        FileHandle.standardOutput.write(Data("Total predictions: \(pairs.count) (failed: \(failedPredicts))\n".utf8))
 
         let report = AccuracyMeter.make(from: pairs)
-        print(report.formattedTable())
-        print("---")
-        print(report.formattedConfusion())
+        let table = report.formattedTable()
+        let confusion = report.formattedConfusion()
+        FileHandle.standardOutput.write(Data((table + "\n---\n" + confusion + "\n").utf8))
         #else
         print("Evaluation requires CoreML+Vision (macOS only).")
         exit(70)

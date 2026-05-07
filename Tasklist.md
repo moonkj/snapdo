@@ -56,9 +56,12 @@ _Empty. Add a line here whenever a change touches ≥2 layers, with affected rol
 ## Phase C — First ML training (Week 4)
 | ID | Task | Owner | Status | Spec ref |
 |---|---|---|---|---|
-| C1 | Generate 13,600 training images | Coder (CLI) | pending | classification §4.5 |
-| C2 | Create ML training (50 iters, ScenePrint) | Architect | pending | classification §5.4 |
-| C3 | Accuracy measurement script vs personal-phone test set | Test | pending | classification §8.2 |
+| C1 | Generate 13,600 training images | Coder (CLI) | done | classification §4.5 |
+| C1.1 | Per-sub-pattern resume script (resilient to parent SIGHUP) | Architect | done | — |
+| C2 | Create ML training (50 iters, ScenePrint v1) → 82.5 KB .mlmodel | Architect | done | classification §5.4 |
+| C2.1 | CreateMLBridge wraps MLImageClassifier; trainer subcommands `train`, `evaluate`, `split` | Architect | done | §5.4, §5.5 |
+| C3 | Accuracy measurement on 680-img hold-out (spec §8.2 table) | Test | done | classification §8.2 |
+| C3.1 | Cycle 0 baseline 75% (matches spec §9.1 "합성만" prediction exactly); link 8% is critical weakness | Test | done | §9.1 |
 
 ## Phase D — Weakness reinforcement (Week 5-7, 5 cycles)
 _Defined per-cycle by audit findings._
