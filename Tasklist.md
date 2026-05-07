@@ -12,9 +12,10 @@ _Empty. Add a line here whenever a change touches ≥2 layers, with affected rol
 
 | ID | Task | Owner | Status | Spec ref |
 |---|---|---|---|---|
-| A1 | Init Xcode project: SnapDo.xcodeproj + 3 targets (SnapDo iOS app / SnapDoCore Swift Package / SnapDoTrainer macOS CLI) | Architect+Coder | in_progress | classification §0, roadmap A1 |
+| A1 | Init Xcode project: SnapDo.xcodeproj + 3 targets (SnapDo iOS app / SnapDoCore Swift Package / SnapDoTrainer macOS CLI) | Architect+Coder | done | classification §0, roadmap A1 |
 | A1.1 | `.gitignore`, `README.md`, repo bootstrap | Architect | done | — |
-| A1.2 | Decide Swift toolchain version, deployment targets (iOS 17 / macOS 14) | Architect | pending | concept §11 |
+| A1.2 | Decide Swift toolchain version, deployment targets (iOS 17 / macOS 14) | Architect | done | concept §11 |
+| A1.3 | XcodeGen project.yml + Package.swift, both schemes build green (`xcodebuild` SnapDo iOS sim + SnapDoTrainer macOS) | Architect | done | classification §0 |
 | A2 | Design tokens in SnapDoCore: AppColors (light+dark), Typography (Pretendard), Easing 6 tokens, Spacing 8pt grid | Architect+UX+Coder | pending | design system §1-3, motion §2 |
 | A3 | NotesGenerator (Apple Notes light mock view, simplest first) | Coder | pending | classification §3.9 |
 | A4 | ImageRenderer (SwiftUI View → NSImage → PNG) for SnapDoTrainer | Coder | pending | classification §4.3 |

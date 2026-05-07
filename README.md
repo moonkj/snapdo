@@ -11,10 +11,28 @@ iOS app that auto-organizes your screenshots. Six categories (Receipt / Place / 
 ## Project structure
 
 ```
-SnapDo.xcodeproj
-├── SnapDo            (iOS app target)
-├── SnapDoCore        (Swift Package — design tokens, classifier, mock views)
-└── SnapDoTrainer     (macOS CLI — synthetic data generator)
+SnapDo.xcodeproj          (generated from project.yml — git-ignored)
+├── SnapDo                (iOS app target — sources in App/)
+├── SnapDoCore            (Swift Package — sources in Sources/SnapDoCore/)
+└── SnapDoTrainer         (macOS CLI — sources in Sources/SnapDoTrainer/)
+```
+
+## Build
+
+```bash
+# Generate the .xcodeproj (one-time, or after editing project.yml)
+brew install xcodegen
+xcodegen generate
+
+# Open in Xcode
+open SnapDo.xcodeproj
+
+# Or build from CLI
+xcodebuild -scheme SnapDo -destination 'generic/platform=iOS Simulator' build
+xcodebuild -scheme SnapDoTrainer -destination 'platform=macOS' build
+
+# Run unit tests
+swift test
 ```
 
 ## Build status

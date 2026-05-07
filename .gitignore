@@ -7,6 +7,10 @@ xcuserdata/
 *.xcscmblueprint
 *.xccheckout
 
+# Generated Xcode project — regenerate with `xcodegen generate`.
+# project.yml is the source of truth.
+SnapDo.xcodeproj/
+
 # Swift Package Manager
 .build/
 .swiftpm/
