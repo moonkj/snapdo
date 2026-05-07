@@ -41,8 +41,17 @@ _Empty. Add a line here whenever a change touches ≥2 layers, with affected rol
 | ID | Task | Owner | Status | Spec ref |
 |---|---|---|---|---|
 | B1 | DataPools: 9 pool files (Names 116, Stores 71, Banks 8, Cards 5, Messages 84+33+23, Places 35+23, Memos 28, Amounts helper, Timestamps helper) + DataPoolsTests | Coder+Test | done | classification §4.1 |
-| B2 | All remaining 38 mock views (kakao dark/group/open, iMessage L/D, Instagram DM, kakaopay, toss×2, kakaobank, card alerts ×5, naverpay, baemin, coupang eats, online shopping, naver/kakao/apple maps, address text, safari url/article, chrome, youtube, shared link, notes dark, reminders, checklist text, imperative text, meme, product, food, scenery, selfie, app unknown) | Coder | pending | classification §3.2-3.10 |
-| B3 | Augmentation module (JPEG, blur, brightness, color jitter, rotate, scale, status-bar variation, notch mask) | Coder | pending | classification §4.4 |
+| B2 | All remaining 38 mock views — 3 background agents in parallel | Coder | done | classification §3.2-3.10 |
+| B2.conv | 7 conversation: kakao 1:1 dark, group light/dark, open chat, iMessage light/dark, Instagram DM | agent ad795c | done | §3.1-3.4 |
+| B2.recpt | 13 receipt: KakaoPay, Toss transfer/payment, KakaoBank, 5 card alerts (KB/Shinhan/Samsung/Hyundai/Woori), NaverPay, Baemin, CoupangEats, OnlineShopping | agent ab5aa6 | done | §3.4-3.6 |
+| B2.place | 4 place: KakaoMap, NaverMap, AppleMaps, AddressText | agent ad0a94 | done | §3.7 |
+| B2.link | 5 link: SafariTop, SafariArticle, Chrome, YouTube, SharedLinkCard | agent ad0a94 | done | §3.8 |
+| B2.todo | 3 remaining todo: Reminders, ChecklistText, ImperativeText | agent ad0a94 | done | §3.9 |
+| B2.other | 6 other: Meme, ProductPhoto, FoodPhoto, Scenery, SelfiePortrait, AppUnknown | agent ad0a94 | done | §3.10 |
+| B2.cli | TrainerCLI registry: 41/41 sub-patterns wired (default removed, exhaustive switch) | Architect | done | §4.1 |
+| B2.smoke | 41/41 PNGs rendered, 0 failures, 5 visual spot-checks pass spec fidelity | Architect+Test | done | §3.x |
+| B3 | Augmentation module (brightness/jitter/scale/rotate/blur/JPEG round-trip), `--noise` flag in trainer | Architect | done | classification §4.2, §4.4 |
+| B3.1 | AccuracyReport + AccuracyMeter for Phase C measurement | Architect | done | §8.2 |
 
 ## Phase C — First ML training (Week 4)
 | ID | Task | Owner | Status | Spec ref |

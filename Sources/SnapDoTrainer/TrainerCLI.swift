@@ -39,8 +39,9 @@ struct TrainerCLI {
                     exit(64)
                 }
                 let seed = opts["seed"].flatMap(UInt64.init) ?? 1
+                let noise = Augmentation.Strength(rawValue: opts["noise"] ?? "none") ?? .none
                 let outURL = URL(fileURLWithPath: NSString(string: outputStr).expandingTildeInPath)
-                try await generate(code: code, count: count, output: outURL, seed: seed)
+                try await generate(code: code, count: count, output: outURL, seed: seed, noise: noise)
 
             case "generate-all":
                 let opts = parseArgs(args.dropFirst())
@@ -49,8 +50,9 @@ struct TrainerCLI {
                     exit(64)
                 }
                 let seed = opts["seed"].flatMap(UInt64.init) ?? 1
+                let noise = Augmentation.Strength(rawValue: opts["noise"] ?? "none") ?? .none
                 let outURL = URL(fileURLWithPath: NSString(string: outputStr).expandingTildeInPath)
-                try await generateAll(output: outURL, seed: seed)
+                try await generateAll(output: outURL, seed: seed, noise: noise)
 
             default:
                 printUsage()
@@ -75,25 +77,30 @@ struct TrainerCLI {
             bucket.count += c.targetCount
             perTop[c.topCategory] = bucket
         }
-        print(String(format: "%-30s %-15s %s", "code", "topCategory", "count"))
+        // Fixed-width without printf — Swift String(format: %s) doesn't accept Swift String.
+        func col(_ s: String, w: Int) -> String { s + String(repeating: " ", count: max(0, w - s.count)) }
+        print(col("code", w: 32) + col("topCategory", w: 16) + "count")
         print(String(repeating: "-", count: 60))
         for c in CategoryCode.allCases {
-            print(String(format: "%-30s %-15s %d",
-                         c.rawValue, c.topCategory.rawValue, c.targetCount))
+            print(col(c.rawValue, w: 32) + col(c.topCategory.rawValue, w: 16) + "\(c.targetCount)")
         }
         print(String(repeating: "-", count: 60))
         for top in TopCategory.allCases {
             if let b = perTop[top] {
-                print(String(format: "%-30s %-15s %d",
-                             "(\(top.rawValue))", "\(b.subs) subs", b.count))
+                print(col("(\(top.rawValue))", w: 32) + col("\(b.subs) subs", w: 16) + "\(b.count)")
             }
         }
-        print(String(format: "%-30s %-15s %d",
-                     "TOTAL", "\(totalSubpatterns) subs", totalCount))
+        print(col("TOTAL", w: 32) + col("\(totalSubpatterns) subs", w: 16) + "\(totalCount)")
     }
 
     @MainActor
-    static func generate(code: CategoryCode, count: Int, output: URL, seed: UInt64) async throws {
+    static func generate(
+        code: CategoryCode,
+        count: Int,
+        output: URL,
+        seed: UInt64,
+        noise: Augmentation.Strength = .none
+    ) async throws {
         guard let gen = generator(for: code) else {
             print("Error: no generator implemented yet for \(code.rawValue).")
             exit(65)
@@ -104,7 +111,19 @@ struct TrainerCLI {
         for i in 1...count {
             let url = snapTrainingOutputURL(base: output, code: code, index: i)
             let view = gen.makeView(seed: seed &+ UInt64(i))
-            _ = try renderer.renderPNG(view, to: url)
+            // Render → augment (if any) → write.
+            if noise == .none {
+                _ = try renderer.renderPNG(view, to: url)
+            } else {
+                var rng = SeededRNG(seed: seed &+ UInt64(i) &+ 0xA1A1)
+                let plan = Augmentation.plan(strength: noise, rng: &rng)
+                var img = try renderer.render(view)
+                img = Augmentation.apply(img, plan: plan)
+                if plan.applyJPEG {
+                    img = Augmentation.roundTripJPEG(img, quality: plan.jpegQuality)
+                }
+                try SnapImageRenderer.writePNG(img, to: url)
+            }
             if i % 25 == 0 || i == count {
                 let pct = Int(Double(i) / Double(count) * 100)
                 print("[\(code.rawValue)] \(i)/\(count) (\(pct)%)")
@@ -115,7 +134,11 @@ struct TrainerCLI {
     }
 
     @MainActor
-    static func generateAll(output: URL, seed: UInt64) async throws {
+    static func generateAll(
+        output: URL,
+        seed: UInt64,
+        noise: Augmentation.Strength = .none
+    ) async throws {
         var renderedTotal = 0
         var skipped: [CategoryCode] = []
         for code in CategoryCode.allCases {
@@ -123,7 +146,13 @@ struct TrainerCLI {
                 skipped.append(code)
                 continue
             }
-            try await generate(code: code, count: code.targetCount, output: output, seed: seed)
+            try await generate(
+                code: code,
+                count: code.targetCount,
+                output: output,
+                seed: seed,
+                noise: noise
+            )
             renderedTotal += code.targetCount
         }
         print("---")
@@ -137,11 +166,58 @@ struct TrainerCLI {
 
     static func generator(for code: CategoryCode) -> MockGenerator? {
         switch code {
-        case .todoNotesLight:     return NotesLightGenerator()
-        case .todoNotesDark:      return NotesDarkGenerator()
-        case .convKakao1on1Light: return KakaoChat1on1LightGenerator()
-        // Phase A4-B2 will fill in the rest. Spec spec §3.1-§3.10 + §1.x sub-pattern table.
-        default: return nil
+        // Receipt (13)
+        case .receiptKakaoPay:        return KakaoPayGenerator()
+        case .receiptTossTransfer:    return TossTransferGenerator()
+        case .receiptTossPayment:     return TossPaymentGenerator()
+        case .receiptKakaobank:       return KakaoBankGenerator()
+        case .receiptCardKB:          return CardAlertKBGenerator()
+        case .receiptCardShinhan:     return CardAlertShinhanGenerator()
+        case .receiptCardSamsung:     return CardAlertSamsungGenerator()
+        case .receiptCardHyundai:     return CardAlertHyundaiGenerator()
+        case .receiptCardWoori:       return CardAlertWooriGenerator()
+        case .receiptNaverPay:        return NaverPayGenerator()
+        case .receiptBaemin:          return BaeminGenerator()
+        case .receiptCoupangEats:     return CoupangEatsGenerator()
+        case .receiptOnlineShopping:  return OnlineShoppingGenerator()
+
+        // Place (4)
+        case .placeKakaomap:          return KakaoMapGenerator()
+        case .placeNavermap:          return NaverMapGenerator()
+        case .placeAppleMaps:         return AppleMapsGenerator()
+        case .placeAddressText:       return AddressTextGenerator()
+
+        // Conversation (8)
+        case .convKakao1on1Light:     return KakaoChat1on1LightGenerator()
+        case .convKakao1on1Dark:      return KakaoChat1on1DarkGenerator()
+        case .convKakaoGroupLight:    return KakaoChatGroupLightGenerator()
+        case .convKakaoGroupDark:     return KakaoChatGroupDarkGenerator()
+        case .convKakaoOpen:          return KakaoChatOpenGenerator()
+        case .convImessageLight:      return IMessageLightGenerator()
+        case .convImessageDark:       return IMessageDarkGenerator()
+        case .convInstagramDM:        return InstagramDMGenerator()
+
+        // Link (5)
+        case .linkSafariTop:          return SafariTopGenerator()
+        case .linkSafariArticle:      return SafariArticleGenerator()
+        case .linkChrome:             return ChromeGenerator()
+        case .linkYoutubeVideo:       return YoutubeVideoGenerator()
+        case .linkSharedLinkCard:     return SharedLinkCardGenerator()
+
+        // Todo (5)
+        case .todoNotesLight:         return NotesLightGenerator()
+        case .todoNotesDark:          return NotesDarkGenerator()
+        case .todoReminders:          return RemindersGenerator()
+        case .todoChecklistText:      return ChecklistTextGenerator()
+        case .todoImperativeText:     return ImperativeTextGenerator()
+
+        // Other / negative (6)
+        case .otherMeme:              return MemeGenerator()
+        case .otherProductPhoto:      return ProductPhotoGenerator()
+        case .otherFoodPhoto:         return FoodPhotoGenerator()
+        case .otherScenery:           return SceneryGenerator()
+        case .otherSelfiePortrait:    return SelfiePortraitGenerator()
+        case .otherAppUnknown:        return AppUnknownGenerator()
         }
     }
 
@@ -176,10 +252,11 @@ struct TrainerCLI {
         Commands:
           version
           list
-          generate     --category <code> --count <n> --output <dir> [--seed <u64>]
-          generate-all --output <dir> [--seed <u64>]
+          generate     --category <code> --count <n> --output <dir> [--seed <u64>] [--noise none|light|medium|heavy]
+          generate-all --output <dir> [--seed <u64>] [--noise none|light|medium|heavy]
 
         Categories: run `SnapDoTrainer list`.
+        Noise levels apply augmentation per classification spec §4.4.
         """)
     }
 }

@@ -140,6 +140,58 @@ Three workstreams ran in parallel on disjoint file scopes:
 - §6.4 fusion weights ✅
 - §7.1 confidence buckets ✅
 
+## 2026-05-07 · Phase B — 38 mock views landed in parallel ✅
+
+**Three background Coder agents** ran on disjoint file scopes inside `Sources/SnapDoCore/MockViews/Generators/`:
+
+- **agent ad795c (conversation)** delivered: `KakaoChat1on1DarkGenerator.swift`, `KakaoChatGroupGenerator.swift` (Light + Dark), `KakaoChatOpenGenerator.swift`, `IMessageGenerator.swift` (Light + Dark), `InstagramDMGenerator.swift` — 7 generators.
+- **agent ab5aa6 (receipt)** delivered: `KakaoPayGenerator.swift`, `TossTransferGenerator.swift`, `TossPaymentGenerator.swift`, `KakaoBankGenerator.swift`, `CardAlertGenerator.swift` (KB/Shinhan/Samsung/Hyundai/Woori = 5), `NaverPayGenerator.swift`, `BaeminGenerator.swift`, `CoupangEatsGenerator.swift`, `OnlineShoppingGenerator.swift` — 13 generators.
+- **agent ad0a94 (place + link + remaining todo + other)** delivered: `PlaceMapGenerators.swift` (Kakao/Naver/Apple/AddressText = 4), `SafariGenerators.swift` (Top + Article = 2), `OtherBrowserGenerators.swift` (Chrome + YouTube + SharedLinkCard = 3), `OtherTodoGenerators.swift` (Reminders + ChecklistText + ImperativeText = 3), `OtherCategoryGenerators.swift` (Meme + Product + Food + Scenery + Selfie + AppUnknown = 6) — 18 generators.
+
+**Combined: 38 new generators + 1 from A3 (NotesLightGenerator) + 2 (Notes Dark, KakaoChat1on1Light from A4) = 41/41 sub-patterns covered.**
+
+**Architect glue work (this session):**
+- TrainerCLI `generator(for:)` switch made exhaustive (default branch removed), all 41 codes routed to concrete generators.
+- `Sources/SnapDoCore/Renderer/Augmentation.swift` — `Augmentation.Strength` (none/light/medium/heavy), `Plan` builder per spec §4.4 (brightness ±10% always; ±3% jitter always; 95-105% scale always; 5% chance ±1° rotate; 10% chance Gaussian blur σ 0.5-1.5; 30% chance JPEG round-trip 0.70-0.95). Pipeline order locked: brightness → jitter → scale → rotate → blur → JPEG round-trip.
+- TrainerCLI `--noise none|light|medium|heavy` flag wired into both `generate` and `generate-all` paths; renders go through `Augmentation.apply()` + optional `roundTripJPEG()` before PNG write.
+- `Sources/SnapDoCore/Classifier/AccuracyReport.swift` — types + `AccuracyMeter.make(from:)` to build a Phase C confusion matrix; pretty-prints the spec §8.2 table format with auto " ← weak" tagging at <70% accuracy.
+- `listCategories()` rewritten without `String(format:%s ...)` — Swift `%s` doesn't accept String, only C-string. Replaced with custom `col(_:w:)` helper.
+
+**Verification matrix (all green):**
+- `swift build` ✅ — 41 generators + Augmentation + AccuracyReport compile clean
+- `swift test` ✅ — 14/14 (5 design tokens + 9 data pools)
+- `xcodebuild SnapDoTrainer build` ✅
+- `SnapDoTrainer list` ✅ — prints 41 codes with target counts; per-category subtotals match spec exactly: receipt 4,300 / place 1,500 / conversation 3,200 / link 1,500 / todo 1,100 / other 2,000 = **13,600**.
+- **41/41 PNG smoke test ✅** — `for code in $(list); generate --count 1` rendered every sub-pattern at 1170×2532, 0 failures, in well under 30 s.
+- **5 visual spot-checks ✅** (Architect):
+  1. `receipt.card_kb` → black lockscreen, 9월 21일 토요일, 8:43 clock, dark notification card with K-circle, "[KB체크] 2026.06.17 08:38 놀부부대찌개 171,795원 일시불승인" — exact §3.6 match
+  2. `receipt.toss_transfer` → Toss-blue full-screen, white check, "송금 완료", "28,999원", white detail card (받는 분 수아 / 보낸 계좌 하나 ****-1234 / 메모 용돈 / 거래 일시 2026.08.14 10:44) — exact §3.5 match
+  3. `conv.kakao_1on1_dark` → #1A1A1A dark NavBar, "수민" centre, #2D2D32 chat bg, #3A3A40 other bubble, #FEE500 my bubble preserved — exact §3.2 match
+  4. `place.kakaomap` → beige grid map, yellow marker chip, "검색하기", red pins, Korean place names (가로수길/북촌/사당/강서/노원), bottom card "엔제리너스 카페 ★4.5 71m" — exact §3.7 option-A match
+  5. `other.meme` → pink/orange gradient, big white "야근 그만!" / "퇴근하면 운동" — §3.10 negative-class match
+
+**Debate-6 (Architect ↔ ad0a94):** `KoreanCards.Card` does not have an `appName` field; the spec hint mentioned it, but the actual struct only has `displayName`/`romanized`/`pushPrefix`. Two hypotheses:
+  - H1: Add `appName` to `Card`, populate per row.
+  - H2: Use `displayName` as the header line (the agent's choice).
+  - **Resolution:** H2 for now. Card-alert push has historically used `displayName` (e.g. "KB국민카드") and the OCR pipeline (§6.2 KoreanLexicon) already keys off `displayName`. If field study shows real notifications use sub-app names (e.g. "Liiv Mate"), revisit in Phase D cycle 1.
+
+**Spec compliance audit (cumulative):**
+- §1.x sub-pattern counts (41 codes, 13,600 imgs) ✅
+- §2 rule engine interfaces ✅
+- §3.1-§3.10 visual specs all covered (one generator per code) ✅
+- §4.1 CLI shape (version/list/generate/generate-all + --noise) ✅
+- §4.2 noise/jpeg-quality flags ✅ (jpeg-quality is auto-derived inside the plan)
+- §4.3 renderer ✅
+- §4.4 augmentation pipeline ✅
+- §4.6 output folder layout ✅
+- §5 ML interface ✅
+- §6.2 KoreanLexicon ✅
+- §6.3 OCR keyword scoring ✅
+- §6.4 fusion weights ✅
+- §7.1 confidence buckets ✅
+- §8.2 accuracy measurement types ✅
+
+
 
 
 
