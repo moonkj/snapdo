@@ -24,10 +24,14 @@ _Empty. Add a line here whenever a change touches ≥2 layers, with affected rol
 | A2.5 | Animation tokens (6 easing + reduce-motion + stagger helper) | Coder | done | tokens-spec §4, motion §2 |
 | A2.6 | SDHaptic (10 events: B1/B2/B3/D1/F4 + snap-create/destructive) | Coder | done | tokens-spec §5 |
 | A2.7 | SDButton / SDCard / SDToast / SDEmptyState / SDSheet (iOS) | Coder | done | tokens-spec §6 |
-| A3 | NotesGenerator (Apple Notes light mock view, simplest first) | Coder | pending | classification §3.9 |
-| A4 | ImageRenderer (SwiftUI View → NSImage → PNG) for SnapDoTrainer | Coder | pending | classification §4.3 |
-| A5 | KakaoChat 1:1 light mock view — primary category | Coder+Debugger | pending | classification §3.1 |
-| A6 | First 100 imgs export sanity-check + visual review | Architect+UX | pending | classification §8 Phase A |
+| A3 | CategoryCode enum (41 sub-patterns + counts + topCategory + folderName) | Architect+Coder | done | classification §1.1-§1.7 |
+| A4 | ImageRenderer (SwiftUI View → CGImage → PNG, 1170×2532 @3x) | Coder | done | classification §4.3 |
+| A5 | NotesLight + NotesDark generators (todo.notes_light/dark) | Coder | done | classification §3.9 |
+| A5.1 | MockGenerator protocol + SeededRNG (deterministic) | Architect | done | classification §4 |
+| A5.2 | NotesPool (16 titles, 30 body lines, 13 timestamps) | Coder | done | classification §3.9 |
+| A6 | SnapDoTrainer CLI (`version`, `list`, `generate`, `generate-all`) | Coder | done | classification §4.1 |
+| A6.1 | End-to-end generation: 30 todo.notes_light PNGs · 1170×2532 PNG verified · 30% checklist branch fires | Test | done | classification §3.9, §4.6 |
+| A7 | KakaoChat 1:1 light mock view — primary category | Coder+Debugger | pending | classification §3.1 |
 
 ## Phase B — Data Pools + Variants (Week 3)
 | ID | Task | Owner | Status | Spec ref |

@@ -64,4 +64,25 @@ Each entry: timestamp · phase · what changed · spec ref · commit hash.
   - `xcodebuild SnapDoTrainer macOS build` ✅
 - **Spec compliance audit:** design-system §1 colors ✅ · §2 typography ✅ · §3 8pt grid ✅ · §4 motion (6 easing) ✅ · §5 haptics (B1/B2/B3/D1/F4 + bonus events) ✅ · §6 components (5 of 6 — Progress component deferred to Phase A6 when used by inbox card stack) · §10 a11y hooks ✅
 
+## 2026-05-07 · Phase A3 — CategoryCode + ImageRenderer + NotesGenerator (1st mock view) ✅
+
+- **CategoryCode** (Sources/SnapDoCore/MockViews/CategoryCode.swift): all 41 sub-patterns from spec §1.1-§1.7, with `.topCategory` (6 enum cases, folder names match Create ML §4.6), `.targetCount` (matches spec totals exactly: receipt 4,300 · place 1,500 · conversation 3,200 · link 1,500 · todo 1,100 · other 2,000 = 13,600 ✅), `.fileSlug` for filenames.
+- **MockGenerator protocol + SeededRNG** (xorshift64*): every generator accepts a seed and returns an `AnyView`. Determinism unlocks reproducible debugging during Phase D weakness reinforcement.
+- **SnapImageRenderer** (Sources/SnapDoCore/Renderer/): SwiftUI `ImageRenderer` (modern API) → CGImage at 390×844 logical pts × scale 3.0 = 1170 × 2532 px (matches spec §3.1 iPhone 14 Pro target). Cross-platform PNG write via NSBitmapImageRep / UIImage.pngData. Plus `snapTrainingOutputURL(...)` helper for spec §4.6 folder layout.
+- **NotesLightGenerator + NotesDarkGenerator** (todo.notes_light / todo.notes_dark): full §3.9 layout — status bar 47pt with random time, NavBar 44pt with `< 메모` / edit / more buttons (Notes-yellow tint), 24pt Bold title from 16-entry pool, 작성 N월 metadata, 6-12 body lines from 30-entry pool, 30% checklist mode with circle bullets.
+- **TrainerCLI** (Sources/SnapDoTrainer/TrainerCLI.swift): `@main` entry. Subcommands `version`, `list`, `generate --category --count --output [--seed]`, `generate-all --output [--seed]`. Built-in generator registry maps `CategoryCode → MockGenerator?`; unimplemented categories print "no generator implemented yet".
+- **End-to-end verification:**
+  - `xcodebuild SnapDoTrainer macOS build` ✅
+  - `SnapDoTrainer generate --category todo.notes_light --count 30 --output /tmp/snapdo_test_out` → 30 PNGs, 1170 × 2532 RGBA, ~120-170 KB each, 0.8 s total. ✅
+  - Visual review (3 random samples): proper Notes app layout, Korean text rendering correct, checklist branch (30%) confirmed firing on seed 16.
+  - `file` reports `PNG image data, 1170 x 2532, 8-bit/color RGBA, non-interlaced` ✅
+- **Debate-5 (Coder ↔ Debugger ↔ UX):** First render had empty body. Three competing hypotheses:
+  - H1 (Debugger): `ScrollView { ... }.scrollDisabled(true)` is a known ImageRenderer trip-up — ScrollView reports zero intrinsic height during off-screen render.
+  - H2 (Coder): `Spacer(minLength: 0)` collapsed ScrollView upstream.
+  - H3 (UX): Color was all-white-on-white due to a missed `foregroundStyle`.
+  - **Resolution:** H1+H2 combined. Removed ScrollView entirely (irrelevant for a static PNG); content rendered correctly on next run. Lesson logged for Phase B mock views.
+- **Spec compliance audit:** classification §1.x sub-pattern counts ✅ · §3.9 Notes layout ✅ · §4.1 CLI shape ✅ · §4.3 renderer ✅ · §4.6 output folder layout ✅
+- **Known follow-up:** body-line pool needs deduplication during a single render (currently picks with replacement, occasional duplicate lines). Tracked for Phase B1 data-pool hardening.
+
+
 
