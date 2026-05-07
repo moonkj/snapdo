@@ -16,7 +16,14 @@ _Empty. Add a line here whenever a change touches ≥2 layers, with affected rol
 | A1.1 | `.gitignore`, `README.md`, repo bootstrap | Architect | done | — |
 | A1.2 | Decide Swift toolchain version, deployment targets (iOS 17 / macOS 14) | Architect | done | concept §11 |
 | A1.3 | XcodeGen project.yml + Package.swift, both schemes build green (`xcodebuild` SnapDo iOS sim + SnapDoTrainer macOS) | Architect | done | classification §0 |
-| A2 | Design tokens in SnapDoCore: AppColors (light+dark), Typography (Pretendard), Easing 6 tokens, Spacing 8pt grid | Architect+UX+Coder | pending | design system §1-3, motion §2 |
+| A2 | Design tokens in SnapDoCore: AppColors (light+dark), Typography (Pretendard), Easing 6 tokens, Spacing 8pt grid, Haptics, Components | Architect+UX+Coder | done | design system §1-3, motion §2 |
+| A2.1 | UX brief consolidated to `docs/design-tokens-spec.md` (250 lines, 9 sections) | UX | done | design system §1-12 |
+| A2.2 | SDColor (semantic + 6 categories HSL S70 + 3 KR brands) | Coder | done | tokens-spec §1 |
+| A2.3 | SDFont (7 type tokens + Pretendard fallback chain) | Coder | done | tokens-spec §2 |
+| A2.4 | Spacing/Radius/IconSize tokens + 5 unit tests | Coder+Test | done | tokens-spec §3, §6.6 |
+| A2.5 | Animation tokens (6 easing + reduce-motion + stagger helper) | Coder | done | tokens-spec §4, motion §2 |
+| A2.6 | SDHaptic (10 events: B1/B2/B3/D1/F4 + snap-create/destructive) | Coder | done | tokens-spec §5 |
+| A2.7 | SDButton / SDCard / SDToast / SDEmptyState / SDSheet (iOS) | Coder | done | tokens-spec §6 |
 | A3 | NotesGenerator (Apple Notes light mock view, simplest first) | Coder | pending | classification §3.9 |
 | A4 | ImageRenderer (SwiftUI View → NSImage → PNG) for SnapDoTrainer | Coder | pending | classification §4.3 |
 | A5 | KakaoChat 1:1 light mock view — primary category | Coder+Debugger | pending | classification §3.1 |
