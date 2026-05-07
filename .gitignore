@@ -53,3 +53,6 @@ SnapDoTraining/
 
 # Logs
 *.log
+
+# Claude Code session/scheduled-task state — not source-of-truth
+.claude/
