@@ -137,8 +137,9 @@ struct TrainerCLI {
 
     static func generator(for code: CategoryCode) -> MockGenerator? {
         switch code {
-        case .todoNotesLight: return NotesLightGenerator()
-        case .todoNotesDark:  return NotesDarkGenerator()
+        case .todoNotesLight:     return NotesLightGenerator()
+        case .todoNotesDark:      return NotesDarkGenerator()
+        case .convKakao1on1Light: return KakaoChat1on1LightGenerator()
         // Phase A4-B2 will fill in the rest. Spec spec §3.1-§3.10 + §1.x sub-pattern table.
         default: return nil
         }

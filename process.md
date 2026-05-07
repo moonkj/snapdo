@@ -84,5 +84,62 @@ Each entry: timestamp · phase · what changed · spec ref · commit hash.
 - **Spec compliance audit:** classification §1.x sub-pattern counts ✅ · §3.9 Notes layout ✅ · §4.1 CLI shape ✅ · §4.3 renderer ✅ · §4.6 output folder layout ✅
 - **Known follow-up:** body-line pool needs deduplication during a single render (currently picks with replacement, occasional duplicate lines). Tracked for Phase B1 data-pool hardening.
 
+## 2026-05-07 · Phase A4 + B1 + Classifier-skeleton (parallel) ✅
+
+Three workstreams ran in parallel on disjoint file scopes:
+
+**Workstream 1 (background Coder agent aca346, Phase A4): KakaoChat 1:1 light**
+- File: `Sources/SnapDoCore/MockViews/Generators/KakaoChat1on1LightGenerator.swift`
+- Implements §3.1 in full: 47 status bar (#FEE500), 56 NavBar with `<`, name from 15-pool, `≡`; #B2C7DA chat area with avatar 36×36 + white other bubbles (UnevenRoundedRectangle topLeading 4) and #FEE500 my bubbles (topTrailing 4); 64 input bar with `+`/emoticon/mic.
+- Layout 47+56+flex+64 = 844 ✅ matches §3.1 canvas.
+- Determinism: SeededRNG produces 3-8 messages, 40-60% mine ratio, 1-180 min gaps, 10% read indicator.
+- Local pool: KakaoChatPool with 15 names + 52 message templates. (Architect note: future work can swap to shared `KoreanNames`/`KoreanMessages` pools delivered by workstream 2; deferred so workstreams can land independently.)
+- TrainerCLI registry updated: `case .convKakao1on1Light: return KakaoChat1on1LightGenerator()`.
+- Sandbox prevented agent from running `swift build`. **Architect ran verification:** SnapDoCore + Trainer build clean → generated 5 PNGs to `/tmp/snapdo_kakao_test/` → `file` reports `1170 x 2532, 8-bit/color RGBA` → visual inspection of 2 random samples confirms full §3.1 fidelity (yellow header, blue-grey chat, bubble shapes, Korean rendering, timestamp format `오후 H:MM`).
+- **Known visual nuance:** timestamps render on separate lines beside (not embedded inside) bubbles. ML-irrelevant; tracked for Phase B polish.
+
+**Workstream 2 (background Coder agent ade9a0, Phase B1): DataPools**
+- 9 new files under `Sources/SnapDoCore/DataPools/`:
+  - `KoreanNames.swift` — givenNames 53, familyNames 25, displayLabels 38 (target 50/20/30 — exceeded all)
+  - `KoreanStores.swift` — cafes 13, convenience 5, fastFood 15, restaurants 18, general 20, all 71 (target 60 — exceeded)
+  - `KoreanBanks.swift` — 8 Bank entries with displayName/romanized/appName
+  - `KoreanCards.swift` — 5 Card entries with displayName/romanized/pushPrefix
+  - `KoreanMessages.swift` — templates 84, memoLines 33, imperatives 23 (targets 80/30/20 — exceeded)
+  - `KoreanPlaces.swift` — seoulLandmarks 35, addressFragments 23 (targets 30/20 — exceeded)
+  - `KoreanMemos.swift` — titles 28 (target 25 — exceeded)
+  - `KoreanAmounts.swift` — `formatKRW(_:)` + `amountString(rng:)` helpers
+  - `KoreanTimestamps.swift` — `chatTime(rng:)` + `receiptStamp(rng:)` helpers
+- New tests: `Tests/SnapDoCoreTests/DataPoolsTests.swift` — pins min sizes for every pool plus formatting/shape sanity checks.
+- Sandbox prevented agent from running `swift test`. **Architect ran verification:** `swift test` → 14/14 passed (5 design tokens + 9 data pools).
+
+**Workstream 3 (Architect, Phase A-aux): Classifier interface skeleton**
+- 4 new files under `Sources/SnapDoCore/Classifier/`:
+  - `SnapClassification.swift` — public `SnapClassification`, `ClassificationEvidence`, `FusionWeights` (α=1 on rule hit, β=0.7, γ=0.3 per §6.4), `RuleHit`, `RuleID` (13 cases mirroring §2.1-§2.5), `ConfidenceBucket` (5 buckets per §7.1), `SnapClassifier` protocol.
+  - `RuleEngine.swift` — `RuleEngine` protocol + `NoRuleEngine` test stub + `ColorTolerance` (`.kakaoYellow` ±15/15/25 from §2.1, `.tossBlue` ±20 from §2.2) + `TargetColor` with `.kakaoYellow`/`.tossBlue`/`.naverGreen` matchers.
+  - `OCRReader.swift` — `OCRReader` protocol + `NoOCRReader` test stub + `KoreanLexicon` enum with `.payment`/`.cardBrands`/`.banksAndPay`/`.storesPopular`/`.messengers`/`.timeWords` and `.all` accessor (mirrors §6.2 customWords) + `OCRKeywordClassifier` implementing weighted scoring per §6.3.
+  - `MLClassifier.swift` — `MLClassifier` protocol + `UniformMLClassifier` placeholder for tests.
+- This unblocks Phase E1 to land without inventing types.
+
+**Cross-layer announcement:** None of the three workstreams collided on files. Architect verified compile + test green after merging:
+- `swift build` ✅ (13 SnapDoCore source files compile clean)
+- `swift test` ✅ (14/14)
+- `xcodebuild SnapDoTrainer build` ✅
+- 5 KakaoChat 1:1 light PNGs render to spec ✅
+
+**Spec compliance audit (cumulative):**
+- classification §1.x sub-pattern counts ✅
+- §2 rule engine interfaces ✅ (impl Phase E1)
+- §3.1 KakaoChat 1:1 light ✅
+- §3.9 Notes light/dark ✅
+- §4.1 CLI shape ✅
+- §4.3 renderer ✅
+- §4.6 output folder layout ✅
+- §5 Core ML interface ✅ (impl Phase E1)
+- §6.2 KoreanLexicon ✅
+- §6.3 OCR keyword scoring ✅
+- §6.4 fusion weights ✅
+- §7.1 confidence buckets ✅
+
+
 
 

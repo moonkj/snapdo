@@ -31,13 +31,17 @@ _Empty. Add a line here whenever a change touches ≥2 layers, with affected rol
 | A5.2 | NotesPool (16 titles, 30 body lines, 13 timestamps) | Coder | done | classification §3.9 |
 | A6 | SnapDoTrainer CLI (`version`, `list`, `generate`, `generate-all`) | Coder | done | classification §4.1 |
 | A6.1 | End-to-end generation: 30 todo.notes_light PNGs · 1170×2532 PNG verified · 30% checklist branch fires | Test | done | classification §3.9, §4.6 |
-| A7 | KakaoChat 1:1 light mock view — primary category | Coder+Debugger | pending | classification §3.1 |
+| A7 | KakaoChat 1:1 light mock view — primary category | Coder+Debugger | done | classification §3.1 |
+| A7.1 | KakaoColors palette (#FEE500, #B2C7DA, #F2F4F6, #8B95A1) + KakaoChatPool (15 names + 52 messages) | Coder | done | classification §3.1 |
+| A7.2 | UnevenRoundedRectangle bubble tails (other top-leading 4, mine top-trailing 4) | Coder | done | classification §3.1 |
+| A7.3 | Build verified · 5 PNGs rendered 1170×2532 · visual review pass | Architect | done | classification §3.1 |
+| A8 | Classifier interface skeleton (RuleEngine, OCRReader, MLClassifier, FusionWeights, ConfidenceBucket) ready for Phase E1 | Architect | done | classification §2/§5/§6/§7.1 |
 
 ## Phase B — Data Pools + Variants (Week 3)
 | ID | Task | Owner | Status | Spec ref |
 |---|---|---|---|---|
-| B1 | DataPools: Names (100+), Messages (100+), Stores (100+), Banks/Cards | Coder | pending | classification §4.1 |
-| B2 | All remaining 39 mock views (kakao dark/group, kakaopay, toss, card alerts ×5, naver/kakao/apple maps, safari ×3, notes dark/reminders, memes etc.) | Coder | pending | classification §3.2-3.10 |
+| B1 | DataPools: 9 pool files (Names 116, Stores 71, Banks 8, Cards 5, Messages 84+33+23, Places 35+23, Memos 28, Amounts helper, Timestamps helper) + DataPoolsTests | Coder+Test | done | classification §4.1 |
+| B2 | All remaining 38 mock views (kakao dark/group/open, iMessage L/D, Instagram DM, kakaopay, toss×2, kakaobank, card alerts ×5, naverpay, baemin, coupang eats, online shopping, naver/kakao/apple maps, address text, safari url/article, chrome, youtube, shared link, notes dark, reminders, checklist text, imperative text, meme, product, food, scenery, selfie, app unknown) | Coder | pending | classification §3.2-3.10 |
 | B3 | Augmentation module (JPEG, blur, brightness, color jitter, rotate, scale, status-bar variation, notch mask) | Coder | pending | classification §4.4 |
 
 ## Phase C — First ML training (Week 4)
