@@ -8,6 +8,15 @@
 //   SnapDoTrainer generate-all --output <dir> [--seed <u64>]
 import Foundation
 import SnapDoCore
+#if canImport(CoreML)
+import CoreML
+#endif
+#if canImport(Vision)
+import Vision
+#endif
+#if canImport(ImageIO)
+import ImageIO
+#endif
 
 @main
 struct TrainerCLI {
@@ -53,6 +62,47 @@ struct TrainerCLI {
                 let noise = Augmentation.Strength(rawValue: opts["noise"] ?? "none") ?? .none
                 let outURL = URL(fileURLWithPath: NSString(string: outputStr).expandingTildeInPath)
                 try await generateAll(output: outURL, seed: seed, noise: noise)
+
+            case "train":
+                let opts = parseArgs(args.dropFirst())
+                guard
+                    let inputStr  = opts["input"],
+                    let outputStr = opts["output"]
+                else {
+                    print("Error: --input <training-dir> --output <model-dir> required.")
+                    exit(64)
+                }
+                let iterations = Int(opts["iterations"] ?? "50") ?? 50
+                let inURL  = URL(fileURLWithPath: NSString(string: inputStr).expandingTildeInPath)
+                let outURL = URL(fileURLWithPath: NSString(string: outputStr).expandingTildeInPath)
+                try CreateMLBridge().train(input: inURL, output: outURL, iterations: iterations)
+
+            case "evaluate":
+                let opts = parseArgs(args.dropFirst())
+                guard
+                    let modelStr = opts["model"],
+                    let testStr  = opts["test"]
+                else {
+                    print("Error: --model <path-to-mlmodel> --test <test-dir> required.")
+                    exit(64)
+                }
+                let modelURL = URL(fileURLWithPath: NSString(string: modelStr).expandingTildeInPath)
+                let testURL  = URL(fileURLWithPath: NSString(string: testStr).expandingTildeInPath)
+                try await evaluate(model: modelURL, testDir: testURL)
+
+            case "split":
+                let opts = parseArgs(args.dropFirst())
+                guard
+                    let inputStr = opts["input"],
+                    let testStr  = opts["test"]
+                else {
+                    print("Error: --input <full-training-dir> --test <out-test-dir> required.")
+                    exit(64)
+                }
+                let pct = Double(opts["pct"] ?? "5") ?? 5
+                let inURL   = URL(fileURLWithPath: NSString(string: inputStr).expandingTildeInPath)
+                let testURL = URL(fileURLWithPath: NSString(string: testStr).expandingTildeInPath)
+                try splitTestSet(input: inURL, test: testURL, percent: pct)
 
             default:
                 printUsage()
@@ -162,6 +212,101 @@ struct TrainerCLI {
         }
     }
 
+    // MARK: Train/test split helper (spec §5.3)
+
+    /// Move `percent`% of images from each `<input>/<topCategory>/` to
+    /// `<test>/<topCategory>/` so they are NOT seen by Create ML.
+    /// Default: 5% per spec §5.3 (Test set 5%).
+    static func splitTestSet(input: URL, test: URL, percent: Double) throws {
+        let fm = FileManager.default
+        try fm.createDirectory(at: test, withIntermediateDirectories: true)
+        var totalMoved = 0
+        for cat in TopCategory.allCases {
+            let src = input.appendingPathComponent(cat.rawValue, isDirectory: true)
+            let dst = test.appendingPathComponent(cat.rawValue, isDirectory: true)
+            guard fm.fileExists(atPath: src.path) else { continue }
+            try fm.createDirectory(at: dst, withIntermediateDirectories: true)
+            var files = (try? fm.contentsOfDirectory(at: src, includingPropertiesForKeys: nil)) ?? []
+            files = files.filter { $0.pathExtension.lowercased() == "png" }
+            // Deterministic shuffle: stable sort by name then take stride.
+            files.sort { $0.lastPathComponent < $1.lastPathComponent }
+            let n = Int(Double(files.count) * percent / 100.0)
+            // Take every (1 / pct)-th file so we get a uniform sample.
+            let step = max(1, files.count / max(n, 1))
+            var moved = 0
+            var i = 0
+            while moved < n && i < files.count {
+                let src = files[i]
+                let target = dst.appendingPathComponent(src.lastPathComponent)
+                try? fm.moveItem(at: src, to: target)
+                moved += 1
+                i += step
+            }
+            totalMoved += moved
+            print("\(cat.rawValue): moved \(moved)/\(files.count) into test set.")
+        }
+        print("Total: \(totalMoved) test images held out.")
+    }
+
+    // MARK: Evaluation
+
+    @MainActor
+    static func evaluate(model modelURL: URL, testDir: URL) async throws {
+        #if canImport(CoreML) && canImport(Vision)
+        let compiledURL = try await MLModel.compileModel(at: modelURL)
+        let model = try MLModel(contentsOf: compiledURL)
+        let vnModel = try VNCoreMLModel(for: model)
+
+        let fm = FileManager.default
+        var pairs: [(gt: TopCategory, pred: TopCategory)] = []
+        for cat in TopCategory.allCases {
+            let folder = testDir.appendingPathComponent(cat.rawValue, isDirectory: true)
+            guard fm.fileExists(atPath: folder.path) else { continue }
+            let files = (try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+            for f in files where f.pathExtension.lowercased() == "png" {
+                if let pred = await predict(url: f, model: vnModel) {
+                    pairs.append((cat, pred))
+                }
+            }
+        }
+
+        let report = AccuracyMeter.make(from: pairs)
+        print(report.formattedTable())
+        print("---")
+        print(report.formattedConfusion())
+        #else
+        print("Evaluation requires CoreML+Vision (macOS only).")
+        exit(70)
+        #endif
+    }
+
+    #if canImport(CoreML) && canImport(Vision)
+    @MainActor
+    static func predict(url: URL, model: VNCoreMLModel) async -> TopCategory? {
+        guard let cgImage = loadCGImage(at: url) else { return nil }
+        return await withCheckedContinuation { cont in
+            let req = VNCoreMLRequest(model: model) { req, _ in
+                guard
+                    let obs = req.results?.first as? VNClassificationObservation,
+                    let cat = TopCategory(rawValue: obs.identifier)
+                else { cont.resume(returning: nil); return }
+                cont.resume(returning: cat)
+            }
+            req.imageCropAndScaleOption = .centerCrop
+            let handler = VNImageRequestHandler(cgImage: cgImage)
+            do { try handler.perform([req]) } catch { cont.resume(returning: nil) }
+        }
+    }
+
+    static func loadCGImage(at url: URL) -> CGImage? {
+        guard
+            let src = CGImageSourceCreateWithURL(url as CFURL, nil),
+            let img = CGImageSourceCreateImageAtIndex(src, 0, nil)
+        else { return nil }
+        return img
+    }
+    #endif
+
     // MARK: Generator registry — each new sub-pattern adds a case here.
 
     static func generator(for code: CategoryCode) -> MockGenerator? {
@@ -254,9 +399,13 @@ struct TrainerCLI {
           list
           generate     --category <code> --count <n> --output <dir> [--seed <u64>] [--noise none|light|medium|heavy]
           generate-all --output <dir> [--seed <u64>] [--noise none|light|medium|heavy]
+          train        --input <training-dir> --output <model-dir> [--iterations 50]
+          evaluate     --model <path/to/SnapDoClassifier.mlmodel> --test <test-dir>
+          split        --input <training-dir> --test <out-test-dir> [--pct 5]
 
         Categories: run `SnapDoTrainer list`.
         Noise levels apply augmentation per classification spec §4.4.
+        Train/evaluate use Apple CreateML.MLImageClassifier (ScenePrint v1) per spec §5.
         """)
     }
 }

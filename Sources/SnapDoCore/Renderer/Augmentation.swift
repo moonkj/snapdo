@@ -82,12 +82,16 @@ public enum Augmentation {
         )
     }
 
-    /// Apply the plan to a CGImage. May allocate. Returns a new CGImage.
+    /// Apply the plan to a CGImage. Returns a new CGImage with the SAME dimensions
+    /// as the input (final crop ensures spec §4.3 1170×2532 invariant).
     public static func apply(_ image: CGImage, plan: Plan) -> CGImage {
+        let originalWidth = image.width
+        let originalHeight = image.height
         var ci = CIImage(cgImage: image)
         let context = CIContext(options: nil)
+        let inputCenter = CGPoint(x: ci.extent.midX, y: ci.extent.midY)
 
-        // 1. Brightness + color jitter via CIColorControls + CIColorMatrix.
+        // 1. Brightness + colour jitter via CIColorControls.
         if plan.brightness != 0 || plan.colorJitter != 0 {
             let f = CIFilter(name: "CIColorControls")!
             f.setValue(ci, forKey: kCIInputImageKey)
@@ -96,23 +100,32 @@ public enum Augmentation {
             f.setValue(1.0 + plan.colorJitter, forKey: kCIInputSaturationKey)
             if let out = f.outputImage { ci = out }
         }
-        // 2. Scale (uniform).
-        if plan.scale != 1.0 {
-            ci = ci.transformed(by: CGAffineTransform(scaleX: plan.scale, y: plan.scale))
+        // 2. Scale + rotate around the centre, so the final crop lands sensibly.
+        if plan.scale != 1.0 || plan.rotate != 0 {
+            var t = CGAffineTransform.identity
+            t = t.translatedBy(x: inputCenter.x, y: inputCenter.y)
+            t = t.scaledBy(x: plan.scale, y: plan.scale)
+            t = t.rotated(by: plan.rotate)
+            t = t.translatedBy(x: -inputCenter.x, y: -inputCenter.y)
+            ci = ci.transformed(by: t)
         }
-        // 3. Rotate (radians).
-        if plan.rotate != 0 {
-            ci = ci.transformed(by: CGAffineTransform(rotationAngle: plan.rotate))
-        }
-        // 4. Blur.
+        // 3. Blur.
         if plan.applyBlur, plan.blurSigma > 0 {
             let f = CIFilter(name: "CIGaussianBlur")!
             f.setValue(ci, forKey: kCIInputImageKey)
             f.setValue(plan.blurSigma, forKey: kCIInputRadiusKey)
             if let out = f.outputImage { ci = out }
         }
-
-        guard let out = context.createCGImage(ci, from: ci.extent) else {
+        // 4. Final crop to original dimensions, centred on the input centre.
+        // Anything that fell outside the canvas is discarded; anything missing
+        // (under-scale) leaves the border colour as bg.
+        let cropRect = CGRect(
+            x: inputCenter.x - CGFloat(originalWidth) / 2,
+            y: inputCenter.y - CGFloat(originalHeight) / 2,
+            width: CGFloat(originalWidth),
+            height: CGFloat(originalHeight)
+        )
+        guard let out = context.createCGImage(ci, from: cropRect) else {
             return image
         }
         return out
