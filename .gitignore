@@ -1,0 +1,51 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserdatad/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+Package.resolved
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# Generated training data (huge, not for git)
+Training/
+TrainingOutput/
+SnapDoTraining/
+*.mlmodel
+!Sources/**/Resources/*.mlmodel
+
+# Build artifacts
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# Secrets
+*.p8
+*.p12
+*.mobileprovision
+.env
+.env.local
+
+# Logs
+*.log
